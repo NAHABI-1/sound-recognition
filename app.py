@@ -4,10 +4,6 @@ from pathlib import Path
 
 from flask import Flask, render_template, request
 
-from utils.audio_processor import AudioProcessingError, prepare_audio_upload
-from utils.fourier_analysis import FourierAnalysisError, analyze_audio
-from utils.speech_to_text import SpeechToTextError, transcribe_audio
-
 
 BASE_DIR = Path(__file__).resolve().parent
 WORK_DIR = Path(os.environ.get("AUDIO_WORK_DIR", tempfile.gettempdir())) / "sound-recognition"
@@ -15,7 +11,7 @@ UPLOAD_DIR = WORK_DIR / "uploads"
 GRAPHS_DIR = WORK_DIR / "graphs"
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
 
 
 @app.route("/", methods=["GET"])
@@ -25,6 +21,10 @@ def index():
 
 @app.route("/upload", methods=["POST"])
 def upload_audio():
+    from utils.audio_processor import AudioProcessingError, prepare_audio_upload
+    from utils.fourier_analysis import FourierAnalysisError, analyze_audio
+    from utils.speech_to_text import SpeechToTextError, transcribe_audio
+
     file = request.files.get("audio")
 
     try:
@@ -65,7 +65,7 @@ def upload_audio():
 
 @app.errorhandler(413)
 def file_too_large(_error):
-    return render_template("index.html", error="File is too large. Maximum size is 25 MB."), 413
+    return render_template("index.html", error="File is too large. Maximum size is 8 MB."), 413
 
 
 if __name__ == "__main__":

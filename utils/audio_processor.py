@@ -8,7 +8,7 @@ from werkzeug.utils import secure_filename
 
 
 ALLOWED_EXTENSIONS = {"wav", "mp3", "m4a", "webm", "ogg"}
-MAX_UPLOAD_MB = 25
+MAX_UPLOAD_MB = 8
 
 
 class AudioProcessingError(Exception):
@@ -85,8 +85,8 @@ def convert_to_wav(source_path: Path, upload_dir: Path) -> Path:
         )
     except Exception as exc:
         raise AudioProcessingError(
-            "Could not prepare the audio for processing. Install FFmpeg or install the Python "
-            "fallback with: pip install imageio-ffmpeg. The audio file may also be corrupted."
+            "Could not prepare that audio format for processing. On this deployment, use a WAV file "
+            "or the browser recorder for the most reliable results."
         ) from exc
 
     if not wav_path.exists() or wav_path.stat().st_size == 0:
@@ -108,7 +108,7 @@ def _get_ffmpeg_exe() -> str:
     except Exception as exc:
         raise AudioProcessingError(
             "FFmpeg is required to convert MP3, M4A, WEBM, or OGG files to WAV. "
-            "Run: pip install imageio-ffmpeg, or install system FFmpeg."
+            "On this deployment, use WAV audio or the browser recorder."
         ) from exc
 
 

@@ -26,7 +26,7 @@ def transcribe_audio(wav_path: Path) -> dict:
     try:
         with sr.AudioFile(str(wav_path)) as source:
             recognizer.adjust_for_ambient_noise(source, duration=0.2)
-            audio_data = recognizer.record(source, duration=8)
+            audio_data = recognizer.record(source, duration=6)
     except Exception as exc:
         raise SpeechToTextError("Could not read the WAV file for speech recognition.") from exc
 
@@ -42,7 +42,11 @@ def transcribe_audio(wav_path: Path) -> dict:
         raise SpeechToTextError(
             "No clear speech was detected. Try a shorter, clearer recording with less background noise."
         ) from exc
-    except sr.RequestError:
+    except sr.RequestError as exc:
+        if os.environ.get("VERCEL") == "1":
+            raise SpeechToTextError(
+                "Speech recognition service is unavailable right now. Fourier analysis still completed."
+            ) from exc
         return _try_offline_fallback(recognizer, audio_data)
 
 
@@ -70,4 +74,4 @@ def _speech_recognition_disabled() -> bool:
     configured = os.environ.get("ENABLE_SPEECH_RECOGNITION")
     if configured is not None:
         return configured.lower() not in {"1", "true", "yes", "on"}
-    return os.environ.get("VERCEL") == "1"
+    return False

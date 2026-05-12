@@ -1,15 +1,13 @@
 from pathlib import Path
 from uuid import uuid4
+import wave
 
 import matplotlib
 import numpy as np
-import soundfile as sf
 
 matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
-from scipy.fft import rfft, rfftfreq
-from scipy.signal import spectrogram
 
 
 class FourierAnalysisError(Exception):
@@ -43,13 +41,17 @@ def analyze_audio(wav_path: Path, graphs_dir: Path) -> dict:
 
 def _load_signal(wav_path: Path) -> tuple[np.ndarray, int]:
     try:
-        signal, sample_rate = sf.read(str(wav_path), always_2d=False)
+        with wave.open(str(wav_path), "rb") as wav_file:
+            sample_rate = wav_file.getframerate()
+            channels = wav_file.getnchannels()
+            sample_width = wav_file.getsampwidth()
+            frames = wav_file.readframes(wav_file.getnframes())
     except Exception as exc:
         raise FourierAnalysisError("Could not load audio for Fourier analysis.") from exc
 
-    signal = np.asarray(signal, dtype=np.float64)
-    if signal.ndim == 2:
-        signal = signal.mean(axis=1)
+    signal = _pcm_to_float(frames, sample_width)
+    if channels > 1:
+        signal = signal.reshape(-1, channels).mean(axis=1)
 
     signal = signal[np.isfinite(signal)]
     if signal.size == 0:
@@ -63,6 +65,31 @@ def _load_signal(wav_path: Path) -> tuple[np.ndarray, int]:
         signal = signal / peak
 
     return signal.astype(np.float32), int(sample_rate)
+
+
+def _pcm_to_float(frames: bytes, sample_width: int) -> np.ndarray:
+    if sample_width == 1:
+        signal = np.frombuffer(frames, dtype=np.uint8).astype(np.float32)
+        return (signal - 128) / 128
+
+    if sample_width == 2:
+        signal = np.frombuffer(frames, dtype="<i2").astype(np.float32)
+        return signal / np.iinfo(np.int16).max
+
+    if sample_width == 3:
+        raw = np.frombuffer(frames, dtype=np.uint8).reshape(-1, 3)
+        sign = (raw[:, 2] & 0x80) != 0
+        padded = np.zeros((raw.shape[0], 4), dtype=np.uint8)
+        padded[:, :3] = raw
+        padded[sign, 3] = 0xFF
+        signal = padded.view("<i4").reshape(-1).astype(np.float32)
+        return signal / float(2**23 - 1)
+
+    if sample_width == 4:
+        signal = np.frombuffer(frames, dtype="<i4").astype(np.float32)
+        return signal / np.iinfo(np.int32).max
+
+    raise FourierAnalysisError("Unsupported WAV sample width.")
 
 
 def _save_waveform(signal: np.ndarray, sample_rate: int, output_path: Path) -> None:
@@ -88,8 +115,8 @@ def _save_fft(signal: np.ndarray, sample_rate: int, output_path: Path) -> float:
         return 0.0
 
     windowed_signal = centered_signal * np.hanning(len(centered_signal))
-    fft_values = np.abs(rfft(windowed_signal))
-    frequencies = rfftfreq(len(windowed_signal), d=1 / sample_rate)
+    fft_values = np.abs(np.fft.rfft(windowed_signal))
+    frequencies = np.fft.rfftfreq(len(windowed_signal), d=1 / sample_rate)
 
     if len(fft_values) > 1:
         dominant_index = int(np.argmax(fft_values[1:]) + 1)
@@ -123,14 +150,7 @@ def _save_spectrogram(signal: np.ndarray, sample_rate: int, output_path: Path) -
 
     nperseg = min(1024, len(signal))
     noverlap = min(nperseg // 2, nperseg - 1)
-    frequencies, times, spectrum = spectrogram(
-        signal,
-        fs=sample_rate,
-        window="hann",
-        nperseg=nperseg,
-        noverlap=noverlap,
-        scaling="spectrum",
-    )
+    frequencies, times, spectrum = _spectrogram(signal, sample_rate, nperseg, noverlap)
     spectrum_db = 10 * np.log10(spectrum + 1e-12)
 
     plt.figure(figsize=(11, 4.8), dpi=140)
@@ -152,6 +172,29 @@ def _decimate_for_plot(signal: np.ndarray, max_points: int = 50_000) -> np.ndarr
 
     step = int(np.ceil(len(signal) / max_points))
     return signal[::step]
+
+
+def _spectrogram(
+    signal: np.ndarray,
+    sample_rate: int,
+    nperseg: int,
+    noverlap: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    step = max(nperseg - noverlap, 1)
+    if len(signal) < nperseg:
+        padded_signal = np.pad(signal, (0, nperseg - len(signal)))
+    else:
+        padded_signal = signal
+
+    frame_count = 1 + max((len(padded_signal) - nperseg) // step, 0)
+    starts = np.arange(frame_count) * step
+    frames = np.stack([padded_signal[start : start + nperseg] for start in starts])
+    frames = frames - frames.mean(axis=1, keepdims=True)
+    windowed_frames = frames * np.hanning(nperseg)
+    spectrum = np.abs(np.fft.rfft(windowed_frames, axis=1)) ** 2
+    frequencies = np.fft.rfftfreq(nperseg, d=1 / sample_rate)
+    times = (starts + nperseg / 2) / sample_rate
+    return frequencies, times, spectrum.T
 
 
 def _save_empty_frequency_plot(output_path: Path, title: str) -> None:

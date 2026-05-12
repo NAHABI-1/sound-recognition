@@ -9,11 +9,12 @@ class SpeechToTextError(Exception):
 
 def transcribe_audio(wav_path: Path) -> dict:
     recognizer = sr.Recognizer()
+    recognizer.operation_timeout = 8
 
     try:
         with sr.AudioFile(str(wav_path)) as source:
             recognizer.adjust_for_ambient_noise(source, duration=0.4)
-            audio_data = recognizer.record(source)
+            audio_data = recognizer.record(source, duration=20)
     except Exception as exc:
         raise SpeechToTextError("Could not read the WAV file for speech recognition.") from exc
 

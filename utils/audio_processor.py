@@ -56,6 +56,9 @@ def save_upload(file: FileStorage, upload_dir: Path) -> Path:
 
 def convert_to_wav(source_path: Path, upload_dir: Path) -> Path:
     """Convert supported audio to a clean mono 16 kHz WAV for recognition."""
+    if source_path.suffix.lower() == ".wav":
+        return source_path
+
     wav_path = upload_dir / f"{source_path.stem}_processed.wav"
     ffmpeg = _get_ffmpeg_exe()
 

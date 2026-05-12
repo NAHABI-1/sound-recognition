@@ -112,17 +112,17 @@
           {% if result.analysis %}
             <div class="graph-grid">
               <article class="graph-card">
-                <img src="{{ url_for('static', filename=result.analysis.waveform_graph) }}" alt="Time-domain waveform graph">
+                <img src="{{ result.analysis.waveform_graph }}" alt="Time-domain waveform graph">
                 <h3>Waveform</h3>
                 <p>Waveform shows amplitude over time, revealing loud and quiet parts of the signal.</p>
               </article>
               <article class="graph-card">
-                <img src="{{ url_for('static', filename=result.analysis.fft_graph) }}" alt="Frequency-domain Fourier Transform spectrum">
+                <img src="{{ result.analysis.fft_graph }}" alt="Frequency-domain Fourier Transform spectrum">
                 <h3>Fourier Transform Spectrum</h3>
                 <p>Fourier graph shows frequency components, with the strongest peak marking the dominant frequency.</p>
               </article>
               <article class="graph-card">
-                <img src="{{ url_for('static', filename=result.analysis.spectrogram_graph) }}" alt="Spectrogram frequency variation over time">
+                <img src="{{ result.analysis.spectrogram_graph }}" alt="Spectrogram frequency variation over time">
                 <h3>Spectrogram</h3>
                 <p>Spectrogram shows frequency variation over time using color intensity for magnitude.</p>
               </article>

@@ -1,3 +1,4 @@
+import base64
 from pathlib import Path
 from uuid import uuid4
 import wave
@@ -33,9 +34,9 @@ def analyze_audio(wav_path: Path, graphs_dir: Path) -> dict:
         "duration": round(duration, 2),
         "sample_rate": int(sample_rate),
         "dominant_frequency": round(float(dominant_frequency), 2),
-        "waveform_graph": f"graphs/{waveform_path.name}",
-        "fft_graph": f"graphs/{fft_path.name}",
-        "spectrogram_graph": f"graphs/{spectrogram_path.name}",
+        "waveform_graph": _image_data_uri(waveform_path),
+        "fft_graph": _image_data_uri(fft_path),
+        "spectrogram_graph": _image_data_uri(spectrogram_path),
     }
 
 
@@ -207,3 +208,8 @@ def _save_empty_frequency_plot(output_path: Path, title: str) -> None:
     plt.tight_layout()
     plt.savefig(output_path, transparent=False, facecolor="white")
     plt.close()
+
+
+def _image_data_uri(path: Path) -> str:
+    image_data = base64.b64encode(path.read_bytes()).decode("ascii")
+    return f"data:image/png;base64,{image_data}"

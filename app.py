@@ -1,3 +1,5 @@
+import os
+import tempfile
 from pathlib import Path
 
 from flask import Flask, render_template, request
@@ -8,8 +10,9 @@ from utils.speech_to_text import SpeechToTextError, transcribe_audio
 
 
 BASE_DIR = Path(__file__).resolve().parent
-UPLOAD_DIR = BASE_DIR / "static" / "uploads"
-GRAPHS_DIR = BASE_DIR / "static" / "graphs"
+WORK_DIR = Path(os.environ.get("AUDIO_WORK_DIR", tempfile.gettempdir())) / "sound-recognition"
+UPLOAD_DIR = WORK_DIR / "uploads"
+GRAPHS_DIR = WORK_DIR / "graphs"
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024
@@ -53,6 +56,7 @@ def upload_audio():
     except FourierAnalysisError as exc:
         return render_template("index.html", error=str(exc)), 422
     except Exception:
+        app.logger.exception("Unexpected error while processing uploaded audio")
         return render_template(
             "index.html",
             error="Something went wrong while processing the audio. Please try a different file.",
